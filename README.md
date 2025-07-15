@@ -1,3 +1,4 @@
+```
 from sqlalchemy import create_engine, MetaData, Table, select
 
 # Replace with your actual DB connection string
@@ -29,3 +30,4 @@ with engine.connect() as conn:
     results = conn.execute(query)
     for row in results:
         print(row)
+```
