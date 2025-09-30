@@ -85,9 +85,10 @@ func main() {
 		fmt.Println("Error getting token:", err)
 		return
 	}
-```
+
 	err = callDatabricksAPI(token, databricksURL)
 	if err != nil {
 		fmt.Println("Error calling Databricks API:", err)
 	}
 }
+```
