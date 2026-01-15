@@ -1,10 +1,10 @@
-param (
-    [Parameter(Mandatory = $true)]
-    [string]$PlanJsonPath
-)
+#param (
+#    [Parameter(Mandatory = $true)]
+#    [string]$PlanJsonPath
+#)
 
 # Load Terraform plan JSON
-$plan = Get-Content $PlanJsonPath -Raw | ConvertFrom-Json
+$plan = Get-Content "C:\Users\anon\Desktop\terraformplan.json" -Raw | ConvertFrom-Json
 
 # Filter: only azuread_group + create or delete
 $results = $plan.resource_changes | Where-Object {
@@ -36,14 +36,25 @@ foreach ($group in $results) {
     if ($actions -contains "create" -and -not ($actions -contains "delete")) {
 
         Write-Host "Creating DB entry for group: $groupNameAfter"
+        $name = $groupNameAfter.Replace("-PIM", "")
+        $pimname = $groupNameAfter
+        Write-Host "INSERT INTO TABLE name, piname $name, $pimname"
     }
     elseif ($actions -contains "delete" -and -not ($actions -contains "create")) {
 
         Write-Host "Deleting DB entry for group: $groupNameBefore"
+        $name = $groupNameBefore.Replace("-PIM", "")
+        $pimname = $groupNameBefore
+        Write-Host "DELETE FROM TABLE WHERE name == '$name' and pimname == '$pimname'"
+        
 
     }
     elseif ($actions -contains "create" -and $actions -contains "delete") {
 
         Write-Host "Replacing group (delete + create): $groupNameBefore"
+        $name = $groupNameAfter.Replace("-PIM", "")
+        $pimname = $groupNameBefore
+        Write-Host "DELETE FROM TABLE WHERE name == '$name' and pimname == '$pimname'"
+        Write-Host "INSERT INTO TABLE name, piname '$name' '$pimname'"
     }
 }
