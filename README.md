@@ -1,94 +1,49 @@
-```
-package main
-
-import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net/http"
-	"os"
+param (
+    [Parameter(Mandatory = $true)]
+    [string]$PlanJsonPath
 )
 
-type TokenResponse struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int    `json:"expires_in"`
+# Load Terraform plan JSON
+$plan = Get-Content $PlanJsonPath -Raw | ConvertFrom-Json
+
+# Filter: only azuread_group + create or delete
+$results = $plan.resource_changes | Where-Object {
+    $_.type -eq "azuread_group" -and (
+        $_.change.actions -contains "create" -or
+        $_.change.actions -contains "delete"
+    ) -and
+    (
+        (
+            $_.change.after.display_name
+        ) -match 'PIM'
+    ) -or
+    (
+        (
+            $_.change.before.display_name
+        ) -match 'PIM'
+    )
 }
 
-func getAzureToken(tenantID, clientID, clientSecret, resource string) (string, error) {
-	url := fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/token", tenantID)
+foreach ($group in $results) {
 
-	data := fmt.Sprintf("grant_type=client_credentials&client_id=%s&client_secret=%s&resource=%s",
-		clientID, clientSecret, resource)
+    $actions = $group.change.actions
+    $address = $group.address
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(data)))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+    # Prefer display_name from "after", fallback to "before"
+    $groupNameAfter = $group.change.after.display_name
+    $groupNameBefore = $group.change.before.display_name
 
-	client := http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
+    if ($actions -contains "create" -and -not ($actions -contains "delete")) {
 
-	body, _ := ioutil.ReadAll(resp.Body)
+        Write-Host "Creating DB entry for group: $groupNameAfter"
+    }
+    elseif ($actions -contains "delete" -and -not ($actions -contains "create")) {
 
-	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("failed to get token: %s", body)
-	}
+        Write-Host "Deleting DB entry for group: $groupNameBefore"
 
-	var tokenRes TokenResponse
-	err = json.Unmarshal(body, &tokenRes)
-	if err != nil {
-		return "", err
-	}
+    }
+    elseif ($actions -contains "create" -and $actions -contains "delete") {
 
-	return tokenRes.AccessToken, nil
+        Write-Host "Replacing group (delete + create): $groupNameBefore"
+    }
 }
-
-func callDatabricksAPI(token, databricksURL string) error {
-	url := databricksURL + "/api/2.0/clusters/list"
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	client := http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println("Response:", string(body))
-
-	return nil
-}
-
-
-func main() {
-	tenantID := os.Getenv("AZURE_TENANT_ID")
-	clientID := os.Getenv("AZURE_CLIENT_ID")
-	clientSecret := os.Getenv("AZURE_CLIENT_SECRET")
-	resource := "2ff814a6-3304-4ab8-85cb-cd0e6f879c1d" // Azure Databricks resource ID
-	databricksURL := "https://<your-region>.azuredatabricks.net"
-
-	token, err := getAzureToken(tenantID, clientID, clientSecret, resource)
-	if err != nil {
-		fmt.Println("Error getting token:", err)
-		return
-	}
-
-	err = callDatabricksAPI(token, databricksURL)
-	if err != nil {
-		fmt.Println("Error calling Databricks API:", err)
-	}
-}
-```
