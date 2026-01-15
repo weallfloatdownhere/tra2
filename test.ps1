@@ -52,9 +52,14 @@ foreach ($group in $results) {
     elseif ($actions -contains "create" -and $actions -contains "delete") {
 
         Write-Host "Replacing group (delete + create): $groupNameBefore"
-        $name = $groupNameAfter.Replace("-PIM", "")
-        $pimname = $groupNameBefore
-        Write-Host "DELETE FROM TABLE WHERE name == '$name' and pimname == '$pimname'"
-        Write-Host "INSERT INTO TABLE name, piname '$name' '$pimname'"
+
+        $name_delete = $groupNameBefore.Replace("-PIM", "")
+        $pimname_delete = $groupNameBefore
+
+        $name_add = $groupNameAfter.Replace("-PIM", "")
+        $pimname_add = $groupNameAfter
+
+        Write-Host "DELETE FROM TABLE WHERE name == '$name_delete' and pimname == '$pimname_delete'"
+        Write-Host "INSERT INTO TABLE name, piname '$name_add' '$pimname_add'"
     }
 }
